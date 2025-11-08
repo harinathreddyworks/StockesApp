@@ -11,7 +11,7 @@ pr:
 jobs:
 - job: AI_Code_Review
   pool:
-    vmImage: 'ubuntu-22.04'   # ✅ Stable Python support
+    name: 'Default'
 
   steps:
   # Step 1: Setup Python
