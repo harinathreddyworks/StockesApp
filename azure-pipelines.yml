@@ -11,33 +11,64 @@ pr:
 jobs:
 - job: AI_Code_Review
   pool:
-    name: 'Default'
+    vmImage: 'ubuntu-22.04'   # ✅ Stable Python support
 
   steps:
+  # Step 1: Setup Python
   - task: UsePythonVersion@0
     inputs:
       versionSpec: '3.10'
       addToPath: true
     displayName: 'Use Python 3.10'
 
+  # Step 2: Install dependencies and run OpenAI Code Review
   - script: |
+      echo "### AI Code Review Summary" > AI_Review_Report.md
       pip install openai
-      python - <<EOF
+      python - <<EOF >> AI_Review_Report.md
       import openai, os, glob
 
       openai.api_key = os.getenv("OPENAI_API_KEY")
 
       files = glob.glob("**/*.py", recursive=True)
+      print(f"Found {len(files)} Python files for review.")
+      print("# AI Code Review Results\n")
+
       for fpath in files:
           with open(fpath, "r", encoding="utf-8") as f:
               content = f.read()
-              prompt = f"Review this Python code for bugs, performance issues, and best practices:\n\n{content[:6000]}"
-              response = openai.ChatCompletion.create(
-                  model="gpt-4o-mini",
-                  messages=[{"role": "user", "content": prompt}]
-              )
-              print(f"\n✅ Review for {fpath}:\n{response.choices[0].message['content']}\n{'-'*80}")
+              prompt = f"Review this Python code for bugs, performance issues, and best practices. Provide concise, actionable suggestions:\n\n{content[:6000]}"
+              try:
+                  response = openai.ChatCompletion.create(
+                      model="gpt-4o-mini",
+                      messages=[{"role": "user", "content": prompt}]
+                  )
+                  review = response.choices[0].message['content']
+                  print(f"\n✅ Review for {fpath}:\n{review}\n{'-'*80}")
+                  print(f"\n## File: {fpath}\n{review}\n", file=open("AI_Review_Report.md", "a"))
+              except Exception as e:
+                  print(f"⚠️ Error reviewing {fpath}: {e}")
       EOF
     env:
       OPENAI_API_KEY: $(OpenAI_ApiKey)
-    displayName: 'Run OpenAI Code Review'
+    displayName: 'Run AI Code Review'
+
+  # Step 3: Run Security Scan using Bandit
+  - script: |
+      pip install bandit
+      bandit -r . -f html -o Security_Report.html || true
+    displayName: 'Run Security Scan with Bandit'
+
+  # Step 4: Publish the AI and Security Reports as Artifacts
+  - task: PublishBuildArtifacts@1
+    inputs:
+      PathtoPublish: 'AI_Review_Report.md'
+      ArtifactName: 'AI_Code_Review_Report'
+      publishLocation: 'Container'
+
+  - task: PublishBuildArtifacts@1
+    inputs:
+      PathtoPublish: 'Security_Report.html'
+      ArtifactName: 'Security_Scan_Report'
+      publishLocation: 'Container'
+
