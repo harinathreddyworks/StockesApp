@@ -1,7 +1,7 @@
 trigger:
   branches:
-    exclude:
-      - '*'
+    include:
+      - main
 
 pr:
   branches:
@@ -9,17 +9,35 @@ pr:
       - '*'
 
 jobs:
-- job: CodeReview
+- job: AI_Code_Review
   pool:
     name: 'Default'
+
   steps:
-  - task: OpenAICodeReviewTask@1
+  - task: UsePythonVersion@0
     inputs:
-      api_key: $(OpenAI_ApiKey)
-      ai_model: 'gpt-3.5-turbo'
-      bugs: true
-      performance: true
-      best_practices: true
-      file_extensions: 'js,ts,css,html'
-      file_excludes: 'file1.js,file2.py,secret.txt'
-      additional_prompts: 'Fix variable naming, Ensure consistent indentation, Review error handling approach'
+      versionSpec: '3.x'
+
+  - script: |
+      pip install openai
+      python - <<EOF
+      import openai, os
+
+      openai.api_key = os.getenv("OPENAI_API_KEY")
+
+      # Example: review code files in the repo
+      for root, dirs, files in os.walk("."):
+          for file in files:
+              if file.endswith((".py", ".js", ".ts", ".html", ".css")):
+                  with open(os.path.join(root, file)) as f:
+                      content = f.read()
+                      prompt = f"Review the following code for bugs, performance issues, and best practices:\n\n{content}"
+                      response = openai.ChatCompletion.create(
+                          model="gpt-4o-mini",
+                          messages=[{"role": "user", "content": prompt}]
+                      )
+                      print(f"Review for {file}:\n{response.choices[0].message['content']}\n{'-'*60}")
+      EOF
+    env:
+      OPENAI_API_KEY: $(OpenAI_ApiKey)
+    displayName: 'Run OpenAI Code Review'
