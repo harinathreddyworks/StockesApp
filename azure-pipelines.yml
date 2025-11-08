@@ -40,7 +40,7 @@ jobs:
               prompt = f"Review this Python code for bugs, performance issues, and best practices. Provide concise, actionable suggestions:\n\n{content[:6000]}"
               try:
                   response = openai.ChatCompletion.create(
-                      model="gpt-4o-mini",
+                      model="gpt-4",
                       messages=[{"role": "user", "content": prompt}]
                   )
                   review = response.choices[0].message['content']
