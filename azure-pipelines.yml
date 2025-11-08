@@ -17,26 +17,26 @@ jobs:
   - task: UsePythonVersion@0
     inputs:
       versionSpec: '3.10'
+      addToPath: true
+    displayName: 'Use Python 3.10'
 
   - script: |
       pip install openai
       python - <<EOF
-      import openai, os
+      import openai, os, glob
 
       openai.api_key = os.getenv("OPENAI_API_KEY")
 
-      # Example: review code files in the repo
-      for root, dirs, files in os.walk("."):
-          for file in files:
-              if file.endswith((".py", ".js", ".ts", ".html", ".css")):
-                  with open(os.path.join(root, file)) as f:
-                      content = f.read()
-                      prompt = f"Review the following code for bugs, performance issues, and best practices:\n\n{content}"
-                      response = openai.ChatCompletion.create(
-                          model="gpt-4o-mini",
-                          messages=[{"role": "user", "content": prompt}]
-                      )
-                      print(f"Review for {file}:\n{response.choices[0].message['content']}\n{'-'*60}")
+      files = glob.glob("**/*.py", recursive=True)
+      for fpath in files:
+          with open(fpath, "r", encoding="utf-8") as f:
+              content = f.read()
+              prompt = f"Review this Python code for bugs, performance issues, and best practices:\n\n{content[:6000]}"
+              response = openai.ChatCompletion.create(
+                  model="gpt-4o-mini",
+                  messages=[{"role": "user", "content": prompt}]
+              )
+              print(f"\n✅ Review for {fpath}:\n{response.choices[0].message['content']}\n{'-'*80}")
       EOF
     env:
       OPENAI_API_KEY: $(OpenAI_ApiKey)
